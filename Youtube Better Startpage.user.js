@@ -710,7 +710,7 @@ if (/^\/?(guide|home|index)?$/i.test(location.pathname)) {
 					});
 				
 					// now extend the information we already have
-					var headerData = response.match(/<div[^>]+id="vm-page-subheader"[^>]*>\s*<h3>\s*<a[^>]+href="([^"]*)"/i);
+					var headerData = response.match(/<div[^>]+id="vm-page-subheader"[^>]*>\s*<h3[^>]*>\s*<a[^>]+href="([^"]*)"/i);
 					self.href = headerData == null ? "Javascript: alert('url not found, sorry!')" : headerData[1];
 					self.titleObj.href = self.href;
 				
@@ -934,6 +934,12 @@ if (/^\/?(guide|home|index)?$/i.test(location.pathname)) {
 	
 	
 	
+	function findVideoInCache (username, vid) {
+		var user = cache[username];
+		if (user === undefined) return null;
+		var video = user[vid];
+		return video;
+	}
 	
 	// gets a new video instance or an already existing one
 	function getVideo (subscription, infos) {
@@ -1224,25 +1230,34 @@ if (/^\/?(guide|home|index)?$/i.test(location.pathname)) {
 		if (sortSubs) {
 			// get the video item names for sorting
 			var names = {}, count = 1;
-			$("[id^=vm-video-list] .yt-user-name", dom).forEach(function (item) {
-				var name = strip(item.textContent);
-				if (!names.hasOwnProperty(name)) {
-					names[name] = count++;
-				}
-			});
-		
-			subscriptions.sort(function (a, b) {
-				return (names[a.name] || count) - (names[b.name] || count);
-			});
-		
-		// sort (to be sure) after name
-		} else {
-			subscriptions.sort(function (a, b) {
-				return (a.name > b.name) ? 1
-					: (a.name < b.name) ? -1
-					: 0;
+			$("[id^=vm-video-list] .vm-video-item", dom).forEach(function(item) {
+				try {
+					var name = strip($(".yt-user-name", item)[0]);
+					// Have we added this user to this list?
+					if (!names.hasOwnProperty(name)) {
+						// We have not. Check to see if this video has been removed or seen.
+						var vid = item.id.replace("vm-video-", "");
+						var video = findVideoInCache(name, vid);
+						var exists = !(video === null);
+						if (exists && (video.removed > 0 || video.seen === true)) {
+							// Skipping user because this video was removed/hidden.
+						} else {
+							names[name] = count++;
+						}
+					}
+				} catch (e) {}
 			});
 		}
+		subscriptions.sort(function(a, b) {
+			if (names[a.name] && names[b.name]) {
+				return (names[a.name]) - (names[b.name]);
+			}
+			if (names[a.name] && !names[b.name]) return -1;
+			if (!names[a.name] && names[b.name]) return 1;
+			return (a.name > b.name) ? 1
+					: (a.name < b.name) ? -1
+					: 0;
+		});
 		
 		// create subscription objects
 		subscriptions.forEach(function (sub) {
