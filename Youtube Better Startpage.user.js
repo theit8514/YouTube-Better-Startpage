@@ -936,8 +936,8 @@ if (/^\/?(guide|home|index)?$/i.test(location.pathname)) {
 	
 	function findVideoInCache (username, vid) {
 		var user = cache[username];
-		if (user === undefined) return null;
-		var video = user[vid];
+		if (user === null || user === undefined) return null;
+		var video = user.videos[vid];
 		return video;
 	}
 	
@@ -1232,20 +1232,22 @@ if (/^\/?(guide|home|index)?$/i.test(location.pathname)) {
 			var names = {}, count = 1;
 			$("[id^=vm-video-list] .vm-video-item", dom).forEach(function(item) {
 				try {
-					var name = strip($(".yt-user-name", item)[0]);
+					var name = strip($(".yt-user-name", item)[0].textContent);
 					// Have we added this user to this list?
 					if (!names.hasOwnProperty(name)) {
 						// We have not. Check to see if this video has been removed or seen.
 						var vid = item.id.replace("vm-video-", "");
 						var video = findVideoInCache(name, vid);
-						var exists = !(video === null);
+						var exists = !(video === undefined || video === null);
 						if (exists && (video.removed > 0 || video.seen === true)) {
+							console.log("Skipping user " + name + " due to removed/seen video " + vid);
 							// Skipping user because this video was removed/hidden.
 						} else {
+							console.log("Adding user " + name + " at index " + count + " video " + vid);
 							names[name] = count++;
 						}
 					}
-				} catch (e) {}
+				} catch (e) {console.error(e.message);}
 			});
 		}
 		subscriptions.sort(function(a, b) {
